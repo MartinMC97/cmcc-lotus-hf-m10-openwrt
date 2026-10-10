@@ -101,7 +101,7 @@ adds r5, r1, r2; sbcscc r5, r5, r3; movcc r3, #0
 	mcr	p15, 0, r3, c3, c0	@ set domain
 @ 0 "" 2
 @ 102 "./arch/arm/include/asm/domain.h" 1
-	isb 
+	isb
 @ 0 "" 2
 	.arm
 	.syntax unified
@@ -112,7 +112,7 @@ adds r5, r1, r2; sbcscc r5, r5, r3; movcc r3, #0
 	mcr	p15, 0, r7, c3, c0	@ set domain
 @ 0 "" 2
 @ 102 "./arch/arm/include/asm/domain.h" 1
-	isb 
+	isb
 @ 0 "" 2
 	.arm
 	.syntax unified
@@ -14953,7 +14953,7 @@ adds r0, r4, r2; sbcscc r0, r0, r3; movcc r3, #0
 	mcr	p15, 0, r3, c3, c0	@ set domain
 @ 0 "" 2
 @ 102 "./arch/arm/include/asm/domain.h" 1
-	isb 
+	isb
 @ 0 "" 2
 	.arm
 	.syntax unified
@@ -14966,7 +14966,7 @@ adds r0, r4, r2; sbcscc r0, r0, r3; movcc r3, #0
 	mcr	p15, 0, r6, c3, c0	@ set domain
 @ 0 "" 2
 @ 102 "./arch/arm/include/asm/domain.h" 1
-	isb 
+	isb
 @ 0 "" 2
 	.arm
 	.syntax unified

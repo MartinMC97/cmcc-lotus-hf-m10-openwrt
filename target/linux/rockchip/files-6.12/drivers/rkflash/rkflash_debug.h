@@ -39,4 +39,3 @@ __printf(1, 2) int rkflash_print_dio(const char *fmt, ...);
 __printf(1, 2) int rkflash_print_bio(const char *fmt, ...);
 
 #endif
-

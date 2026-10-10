@@ -793,4 +793,3 @@ int snor_reinit_from_table_packet(struct SFNOR_DEV *p_dev,
 
 	return ret;
 }
-
