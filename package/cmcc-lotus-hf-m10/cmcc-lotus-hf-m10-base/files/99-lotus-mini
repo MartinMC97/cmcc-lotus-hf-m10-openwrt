@@ -1,0 +1,74 @@
+#!/bin/sh
+# Executed once by OpenWrt uci-defaults; never reset user credentials.
+set -e
+uci -q get system.@system[0] >/dev/null
+# Rename the old default, but retain an operator's custom hostname.
+case "$(uci -q get system.@system[0].hostname || true)" in
+    ''|OpenWrt|lotus-mini) uci set system.@system[0].hostname=cmcc-lotus-hf-m10 ;;
+esac
+uci set system.@system[0].timezone=CST-8
+uci set system.@system[0].zonename=Asia/Shanghai
+uci -q get system.ntp >/dev/null || uci set system.ntp=timeserver
+uci set system.ntp.enabled=1
+uci set system.ntp.enable_server=0
+if ! uci -q get system.ntp.server >/dev/null; then
+    uci add_list system.ntp.server=0.openwrt.pool.ntp.org
+    uci add_list system.ntp.server=1.openwrt.pool.ntp.org
+fi
+uci commit system
+# No Ethernet ports on this board. Keep a named DHCP client for a user-created
+# station, but never create an AP or embed a Wi-Fi credential.
+if ! uci -q get network.wwan >/dev/null; then
+    uci set network.wwan=interface
+    uci set network.wwan.proto=dhcp
+    uci set network.wwan.hostname=cmcc-lotus-hf-m10
+    uci set network.wwan.peerdns=1
+    uci commit network
+fi
+# Both management servers are in Rootfs. No network credentials are supplied;
+# set the root password over USB serial before joining a Wi-Fi network.
+/etc/init.d/dropbear enable
+/etc/init.d/uhttpd enable
+# Preserve an existing operator-defined zone. Fresh systems get a station zone
+# with no forwarding, and explicit management/DHCP rules rather than a subnet
+# baked into the firmware.
+. /lib/functions.sh
+lotus_wwan_zone=
+lotus_check_zone() {
+    local networks network
+    config_get networks "$1" network
+    for network in $networks; do
+        [ "$network" != wwan ] || lotus_wwan_zone=1
+    done
+}
+config_load firewall
+config_foreach lotus_check_zone zone
+if [ -z "$lotus_wwan_zone" ]; then
+    uci set firewall.lotus_management=zone
+    uci set firewall.lotus_management.name=lotus_management
+    uci set firewall.lotus_management.network=wwan
+    uci set firewall.lotus_management.input=REJECT
+    uci set firewall.lotus_management.output=ACCEPT
+    uci set firewall.lotus_management.forward=REJECT
+    uci set firewall.lotus_management_tcp=rule
+    uci set firewall.lotus_management_tcp.name=Allow-Lotus-Management
+    uci set firewall.lotus_management_tcp.src=lotus_management
+    uci set firewall.lotus_management_tcp.proto=tcp
+    uci set firewall.lotus_management_tcp.dest_port='22 80 443'
+    uci set firewall.lotus_management_tcp.target=ACCEPT
+    uci set firewall.lotus_management_dhcp=rule
+    uci set firewall.lotus_management_dhcp.name=Allow-Lotus-DHCP
+    uci set firewall.lotus_management_dhcp.src=lotus_management
+    uci set firewall.lotus_management_dhcp.proto=udp
+    uci set firewall.lotus_management_dhcp.dest_port=68
+    uci set firewall.lotus_management_dhcp.family=ipv4
+    uci set firewall.lotus_management_dhcp.target=ACCEPT
+    uci commit firewall
+fi
+# This local target/feed has no official public package repository. Keep common
+# OpenWrt feeds, but do not make apk update fail on invented upstream URLs.
+repositories=/etc/apk/repositories.d/distfeeds.list
+if [ -f "$repositories" ]; then
+    sed -i '\|/targets/rockchip/hf_m10/|s/^/# Local target, not published upstream: /; \|/packages/[^/]*/cmcc_lotus/|s/^/# Local feed, not published upstream: /' "$repositories"
+fi
+exit 0

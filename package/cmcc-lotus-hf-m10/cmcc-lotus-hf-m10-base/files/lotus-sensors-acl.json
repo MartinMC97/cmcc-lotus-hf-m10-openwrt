@@ -1,0 +1,9 @@
+{
+  "lotus-sensors": {
+    "description": "Read CMCC HF-M10 battery and internal temperature",
+    "read": {
+      "ubus": { "file": ["exec"] },
+      "file": { "/usr/bin/lotus-sensors": ["exec"] }
+    }
+  }
+}

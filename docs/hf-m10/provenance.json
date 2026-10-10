@@ -1,0 +1,23 @@
+{
+  "device": "cmcc-lotus-hf-m10",
+  "vendor": "CMCC",
+  "official_name": "和家小荷 MINI 10",
+  "model": "HF-M10",
+  "openwrt_tag": "v25.12.5",
+  "openwrt_commit": "f0a60eee2fe051741c643ea6118718aae1ef17fb",
+  "migration_source_commit": "c72784d55137a06218dab05c87b79be308c80ab7",
+  "migration_source_export": "standard-build/openwrt-overrides/SHA256SUMS",
+  "kernel": "6.12.108",
+  "kernel_patch_provenance": "same generic/rockchip patch set as the qualified 25.12.5 firmware",
+  "packages_commit": "5caa62e0bc9f7fb9b0c12a23267bceb7724214dd",
+  "luci_commit": "128a7812f4be233c5dd7f7466f534fd888785caf",
+  "legacy_compatibility": [
+    "lotus,mini-rk3308",
+    "lotus-openwrt-v1",
+    "lotus-mini-openwrt-upper-v1",
+    "LotusMini ALSA card",
+    "/sys/kernel/lotus_nand",
+    "lotus hardware control interfaces"
+  ],
+  "verification": "pending native toolchain build; no runtime acceptance of the renamed firmware"
+}

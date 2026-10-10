@@ -23,7 +23,7 @@ endif
 ifneq ($(CONFIG_SDK)$(CONFIG_TARGET_INITRAMFS_COMPRESSION_BZIP2),)
   BUILD_BZIP2_TOOLS = y
 endif
-ifneq ($(CONFIG_SDK)$(CONFIG_TARGET_INITRAMFS_COMPRESSION_LZ4),)
+ifneq ($(CONFIG_SDK)$(CONFIG_TARGET_INITRAMFS_COMPRESSION_LZ4)$(CONFIG_TARGET_rockchip_hf_m10),)
   BUILD_LZ4_TOOLS = y
 endif
 ifneq ($(CONFIG_SDK)$(CONFIG_TARGET_INITRAMFS_COMPRESSION_LZO),)
@@ -44,6 +44,7 @@ tools-y += erofs-utils
 tools-y += expat
 tools-y += fakeroot
 tools-y += findutils
+tools-$(CONFIG_TARGET_rockchip_hf_m10) += hf-m10-resource
 tools-y += firmware-utils
 tools-y += flex
 tools-y += gengetopt

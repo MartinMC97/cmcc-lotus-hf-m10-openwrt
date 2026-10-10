@@ -45,8 +45,11 @@ define KernelPackage/hci-uart
 	CONFIG_BT_HCIUART_INTEL=n \
 	CONFIG_BT_HCIUART_H4 \
 	CONFIG_BT_HCIUART_NOKIA=n
+  KCONFIG += $(if $(CONFIG_TARGET_rockchip_hf_m10),CONFIG_BT_HCIUART_3WIRE=y CONFIG_BT_HCIUART_RTL=y CONFIG_BT_RTL)
   FILES:= \
 	$(LINUX_DIR)/drivers/bluetooth/hci_uart.ko
+  FILES += $(if $(CONFIG_TARGET_rockchip_hf_m10),$(LINUX_DIR)/drivers/bluetooth/btrtl.ko)
+  # Package Realtek with its UART consumer, avoiding cross-package cycles.
   AUTOLOAD:=$(call AutoProbe,hci_uart)
 endef
 

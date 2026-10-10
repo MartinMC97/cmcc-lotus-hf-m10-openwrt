@@ -1,0 +1,9 @@
+#!/bin/sh
+# Wi-Fi-only board: suppress generic eth0/br-lan fallback, no credentials.
+. /lib/functions/uci-defaults.sh
+. /lib/functions/system.sh
+[ "$(board_name)" = 'lotus,mini-rk3308' ] || exit 1
+board_config_update
+ucidef_set_interface wwan protocol dhcp
+board_config_flush
+exit 0

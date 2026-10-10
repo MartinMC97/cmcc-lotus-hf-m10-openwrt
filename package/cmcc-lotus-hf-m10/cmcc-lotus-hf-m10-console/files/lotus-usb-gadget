@@ -1,0 +1,67 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Single board owner. May adopt the stage-2 bootstrap's ADB+ACM gadget.
+set -eu
+config=/sys/kernel/config
+G=$config/usb_gadget/cmcc-lotus-hf-m10
+udc=ff400000.usb
+case "${1:-start}" in
+    stop)
+        [ ! -f "$G/UDC" ] || echo '' > "$G/UDC"
+        exit 0;;
+    watch)
+        # Transitional FunctionFS ADB closes its endpoints on disconnect.
+        # Linux then unregisters the whole composite gadget. Wait for adbd
+        # to publish fresh descriptors before restoring this owner's binding.
+        while :; do
+            if [ -f "$G/UDC" ] && [ -z "$(cat "$G/UDC")" ] &&
+               [ -f "$G/functions/ffs.adb/ready" ] &&
+               [ "$(cat "$G/functions/ffs.adb/ready")" = 1 ]; then
+                if "$0" start; then
+                    logger -t lotus-console 'FunctionFS descriptors ready; USB composite rebound'
+                fi
+            fi
+            sleep 2
+        done;;
+    start) ;;
+    *) exit 2;;
+esac
+mkdir -p "$config"
+grep -q " $config configfs " /proc/mounts || mount -t configfs configfs "$config"
+# Refuse to compete with another gadget owner.
+for other in "$config"/usb_gadget/*; do
+    [ ! -f "$other/UDC" ] || [ "$other" = "$G" ] || [ -z "$(cat "$other/UDC")" ] || exit 1
+done
+if [ -f "$G/UDC" ] && [ -L "$G/configs/c.1/acm.console" ]; then
+    if [ -n "$(cat "$G/UDC")" ]; then
+        [ "$(cat "$G/UDC")" = "$udc" ]
+    else
+        # Adopt the existing descriptor set without changing its USB identity.
+        [ ! -f "$G/functions/ffs.adb/ready" ] ||
+            [ "$(cat "$G/functions/ffs.adb/ready")" = 1 ]
+        echo "$udc" > "$G/UDC"
+    fi
+    exit
+fi
+mkdir -p "$G"
+echo 0x2207 > "$G/idVendor"
+echo 0x0006 > "$G/idProduct"
+# Composite IAD class permits Windows usbser enumeration.
+echo 0xEF > "$G/bDeviceClass"
+echo 0x02 > "$G/bDeviceSubClass"
+echo 0x01 > "$G/bDeviceProtocol"
+mkdir -p "$G/strings/0x409" "$G/configs/c.1/strings/0x409"
+serial=$(sed -n 's/.*androidboot.serialno=\([^ ]*\).*/\1/p' /proc/cmdline)
+[ -n "$serial" ] || serial=$(sed -n 's/^Serial[[:space:]]*:[[:space:]]*//p' /proc/cpuinfo)
+[ -n "$serial" ] || serial=CMCCHFM10CONSOLE
+echo "$serial" > "$G/strings/0x409/serialnumber"
+echo 'CMCC' > "$G/strings/0x409/manufacturer"
+echo 'CMCC HF-M10 OpenWrt console' > "$G/strings/0x409/product"
+echo 'USB serial console' > "$G/configs/c.1/strings/0x409/configuration"
+echo 120 > "$G/configs/c.1/MaxPower"
+mkdir -p "$G/functions/acm.console"
+[ -L "$G/configs/c.1/acm.console" ] || ln -s "$G/functions/acm.console" "$G/configs/c.1/acm.console"
+i=0
+while [ ! -e "/sys/class/udc/$udc" ] && [ "$i" -lt 20 ]; do sleep 1; i=$((i + 1)); done
+[ -e "/sys/class/udc/$udc" ]
+echo "$udc" > "$G/UDC"

@@ -1,0 +1,22 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-2.0-only
+START=15
+STOP=90
+USE_PROCD=1
+start_service() {
+    /usr/libexec/lotus-usb-gadget start || { logger -t lotus-console 'USB gadget owner/bind failed'; return 1; }
+    if [ -d /sys/kernel/config/usb_gadget/cmcc-lotus-hf-m10/functions/ffs.adb ]; then
+        procd_open_instance gadget
+        procd_set_param command /usr/libexec/lotus-usb-gadget watch
+        procd_set_param respawn 3600 2 0
+        procd_close_instance
+    fi
+    procd_open_instance console
+    procd_set_param command /usr/libexec/busybox-hf-m10 getty -L -n -l /usr/libexec/lotus-console-login 115200 ttyGS0 vt102
+    procd_set_param respawn 3600 2 0
+    procd_close_instance
+}
+stop_service() {
+    # During stage 2 ADB still belongs to the outer bootstrap.
+    [ -d /sys/kernel/config/usb_gadget/cmcc-lotus-hf-m10/functions/ffs.adb ] || /usr/libexec/lotus-usb-gadget stop
+}

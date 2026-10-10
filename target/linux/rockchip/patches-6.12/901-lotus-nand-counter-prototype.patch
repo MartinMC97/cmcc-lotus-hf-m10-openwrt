@@ -1,0 +1,10 @@
+--- a/drivers/rkflash/flash.h
++++ b/drivers/rkflash/flash.h
+@@ -130,3 +130,7 @@
+ u32 nandc_flash_deinit(void);
+ 
++struct seq_file;
++#if IS_ENABLED(CONFIG_LOTUS_MINI_NAND_GC_TEST)
++void lotus_mini_nand_counters_show(struct seq_file *m);
++#endif
+ #endif

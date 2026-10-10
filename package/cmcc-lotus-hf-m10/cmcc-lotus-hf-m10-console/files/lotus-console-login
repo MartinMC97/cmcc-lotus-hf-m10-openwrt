@@ -1,0 +1,9 @@
+#!/bin/sh
+# Read root password state on EACH login; ttylogin=0 cannot bypass authentication.
+export TERM=vt102
+password=$(awk -F: '$1 == "root" { print $2; found=1 } END { if (!found) exit 1 }' /etc/shadow) || exit 1
+if [ -z "$password" ]; then
+    exec /bin/login -f root
+fi
+# Locked accounts also go through login and remain locked.
+exec /bin/login

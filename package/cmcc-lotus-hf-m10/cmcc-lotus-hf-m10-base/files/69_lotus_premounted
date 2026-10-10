@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Sourced by preinit. Bootstrap already mounted the verified NAND/overlay.
+lotus_premounted_log() {
+	echo "lotus-preinit: $*" > /dev/kmsg
+}
+
+lotus_premounted_valid() {
+	[ "$(cat /overlay/lotus-openwrt-v1/id 2>/dev/null)" = lotus-mini-openwrt-upper-v1 ] || return 1
+	BB=${BB:-/bin/busybox}
+	. "${LOTUS_PARTITION_HELPER:-/lib/lotus-partitions.sh}" || return 1
+	rootfs=$(lotus_partition rootfs 53248 71680) || return 1
+	userdata=$(lotus_partition userdata 124928 userdata) || return 1
+	awk -v lower="$rootfs" -v data="$userdata" '
+		$1 == lower && $2 == "/rom" && $3 == "squashfs" && $4 ~ /(^|,)ro(,|$)/ { rom = 1 }
+		$1 == data && $2 == "/overlay" && $3 == "ext4" && $4 ~ /(^|,)rw(,|$)/ { upper = 1 }
+		$2 == "/" && $3 == "overlay" && $4 ~ /upperdir=\/run\/lotus-upper\/lotus-openwrt-v1\/upper(,|$)/ { root = 1 }
+		END { exit !(rom && upper && root) }
+	' /proc/self/mounts
+}
+
+lotus_premounted_test() {
+	[ "$LOTUS_PREMOUNTED_ROOT" = 1 ] || return 0
+	# A failed assertion holds preinit; outside ADB remains available for rescue.
+	if ! lotus_premounted_valid; then
+		lotus_premounted_log 'premounted NAND verification failed; holding'
+		while :; do sleep 60; done
+	fi
+	# Run config generation hooks, but stop before the standard mount_root hook.
+	boot_run_hook initramfs
+	preinit_ip_deconfig
+	lotus_premounted_log 'persistent NAND verified; mount_root skipped'
+	# Empty the remaining hook queue, rather than relying on ash-only break
+	# propagation from a called function into boot_run_hook's while loop.
+	preinit_main_hook=
+}
+
+boot_hook_add preinit_main lotus_premounted_test

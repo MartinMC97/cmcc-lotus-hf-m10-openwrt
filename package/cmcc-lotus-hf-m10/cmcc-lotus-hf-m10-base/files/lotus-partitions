@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Source with BB set. GPT names, never partition numbers or symlink guesses.
+lotus_partition() {
+    wanted=$1; expected_start=$2; expected_size=$3; found=
+    for node in "${LOTUS_SYS_BLOCK:-/sys/class/block}"/rkflash0p*; do
+        [ -f "$node/uevent" ] || continue
+        name=; dev=
+        while IFS='=' read -r key value; do
+            case "$key" in PARTNAME) name=$value;; DEVNAME) dev=$value;; esac
+        done < "$node/uevent"
+        [ "$name" = "$wanted" ] || continue
+        [ -z "$found" ] || return 1
+        case "$dev" in rkflash0p[0-9]*) ;; *) return 1;; esac
+        start=$("$BB" cat "$node/start") || return 1
+        size=$("$BB" cat "$node/size") || return 1
+        [ "$start" = "$expected_start" ] || return 1
+        if [ "$expected_size" = userdata ]; then
+            case "$size" in 94175|95711) ;; *) return 1;; esac
+        else
+            [ "$size" = "$expected_size" ] || return 1
+        fi
+        found=/dev/$dev
+    done
+    [ -n "$found" ] || return 1
+    printf '%s\n' "$found"
+}

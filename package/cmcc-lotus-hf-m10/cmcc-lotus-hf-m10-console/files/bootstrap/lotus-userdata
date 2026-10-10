@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Source with BB set, after named geometry and an ext4 mount were verified.
+# Only the dedicated OpenWrt namespace may be created; never format or repair.
+lotus_userdata_empty() {
+    for item in "$1"/* "$1"/.[!.]* "$1"/..?*; do
+        [ ! -e "$item" ] && [ ! -L "$item" ] || return 1
+    done
+}
+
+lotus_userdata_state() {
+    local directory item value
+    directory=$1/lotus-openwrt-v1
+    [ -d "$1" ] && [ ! -L "$1" ] || return 1
+    [ ! -L "$directory" ] || return 1
+    if [ ! -e "$directory" ]; then
+        printf '%s\n' new
+        return 0
+    fi
+    [ -d "$directory" ] || return 1
+    if [ -e "$directory/id" ] || [ -L "$directory/id" ]; then
+        [ -f "$directory/id" ] && [ ! -L "$directory/id" ] || return 1
+        value=$("$BB" cat "$directory/id") || return 1
+        [ "$value" = lotus-mini-openwrt-upper-v1 ] || return 1
+        for item in upper work; do
+            [ -d "$directory/$item" ] && [ ! -L "$directory/$item" ] || return 1
+        done
+        printf '%s\n' ready
+        return 0
+    fi
+    # Resume only an empty, uncommitted initialization. Any unknown content
+    # without a valid identity is preserved and requires operator inspection.
+    for item in "$directory"/* "$directory"/.[!.]* "$directory"/..?*; do
+        [ -e "$item" ] || [ -L "$item" ] || continue
+        [ ! -L "$item" ] || return 1
+        case "$item" in
+            "$directory/upper"|"$directory/work")
+                [ -d "$item" ] && lotus_userdata_empty "$item" || return 1 ;;
+            "$directory/id.pending")
+                [ -f "$item" ] || return 1
+                value=$("$BB" cat "$item") || return 1
+                case "$value" in ''|lotus-mini-openwrt-upper-v1) ;; *) return 1;; esac ;;
+            *) return 1 ;;
+        esac
+    done
+    printf '%s\n' new
+}
+
+lotus_userdata_prepare() (
+    local directory state
+    directory=$1/lotus-openwrt-v1
+    # Check again after remount: journal replay can change the read-only view.
+    state=$(lotus_userdata_state "$1") || return 1
+    [ "$state" != ready ] || return 0
+    umask 077
+    if [ ! -d "$directory" ]; then
+        "$BB" mkdir -m 0700 "$directory" || return 1
+    fi
+    [ -d "$directory/upper" ] || "$BB" mkdir -m 0755 "$directory/upper" || return 1
+    [ -d "$directory/work" ] || "$BB" mkdir -m 0700 "$directory/work" || return 1
+    "$BB" chown 0:0 "$directory" "$directory/upper" "$directory/work" || return 1
+    "$BB" chmod 0700 "$directory" "$directory/work" || return 1
+    # This inode becomes the overlay root, so it must remain traversable.
+    "$BB" chmod 0755 "$directory/upper" || return 1
+    printf '%s\n' lotus-mini-openwrt-upper-v1 > "$directory/id.pending" || return 1
+    "$BB" chown 0:0 "$directory/id.pending" || return 1
+    "$BB" chmod 0600 "$directory/id.pending" || return 1
+    "$BB" sync || return 1
+    "$BB" mv "$directory/id.pending" "$directory/id" || return 1
+    "$BB" sync || return 1
+)

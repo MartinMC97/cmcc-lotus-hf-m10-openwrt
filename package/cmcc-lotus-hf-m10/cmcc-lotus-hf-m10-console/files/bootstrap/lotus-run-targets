@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Resolve OpenWrt /run aliases without following an absolute link outside newroot.
+lotus_run_target() {
+    LRT_ROOT=$1
+    if [ -L "$LRT_ROOT/run" ]; then
+        LRT_LINK=$("$BB" readlink "$LRT_ROOT/run") || return 1
+        case "$LRT_LINK" in
+            var/run|/var/run|tmp/run|/tmp/run) printf '%s/tmp/run\n' "$LRT_ROOT";;
+            *) return 1;;
+        esac
+    elif [ -e "$LRT_ROOT/run" ]; then
+        [ -d "$LRT_ROOT/run" ] || return 1
+        printf '%s/run\n' "$LRT_ROOT"
+    else
+        "$BB" ln -s tmp/run "$LRT_ROOT/run" || return 1
+        printf '%s/tmp/run\n' "$LRT_ROOT"
+    fi
+}

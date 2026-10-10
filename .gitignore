@@ -35,3 +35,12 @@ git-src
 .cproject
 .ccache
 .vscode*
+
+# HF-M10 private device data and local verification outputs
+/private-backups/
+/runtime-tests/
+/artifacts/
+/build-logs/
+__pycache__/
+*.pyc
+.debug-unit.json

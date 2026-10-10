@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0-only
+lotus_premounted_valid() {
+    [ "$(cat /overlay/lotus-openwrt-v1/id 2>/dev/null)" = lotus-mini-openwrt-upper-v1 ] || return 1
+    BB=/bin/busybox
+    . /lib/lotus/partitions.sh || return 1
+    rootfs=$(lotus_partition rootfs 53248 71680) || return 1
+    userdata=$(lotus_partition userdata 124928 userdata) || return 1
+    awk -v lower="$rootfs" -v upper="$userdata" '
+        $1 == lower && $2 == "/rom" && $3 == "squashfs" && $4 ~ /(^|,)ro(,|$)/ { rom=1 }
+        $1 == upper && $2 == "/overlay" && $3 == "ext4" && $4 ~ /(^|,)rw(,|$)/ { data=1 }
+        $2 == "/" && $3 == "overlay" && $4 ~ /upperdir=\/lotus-upper\/lotus-openwrt-v1\/upper(,|$)/ { root=1 }
+        END { exit !(rom && data && root) }
+    ' /proc/self/mounts
+}
+lotus_premounted_test() {
+    [ "$LOTUS_PREMOUNTED_ROOT" = 1 ] || return 0
+    if ! lotus_premounted_valid; then
+        echo 'lotus-preinit: root verification failed; holding' > /dev/kmsg
+        while :; do sleep 60; done
+    fi
+    boot_run_hook initramfs
+    preinit_ip_deconfig
+    preinit_main_hook=
+    echo 'lotus-preinit: verified NAND overlay; mount_root skipped' > /dev/kmsg
+}
+boot_hook_add preinit_main lotus_premounted_test

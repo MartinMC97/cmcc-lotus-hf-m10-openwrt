@@ -1,0 +1,87 @@
+#!/bin/sh
+# Read-only by default. Explicit emulation verifies cooling without heating.
+set -eu
+case "${1:-}" in
+    '') exec /usr/bin/lotus-sensors;;
+    --emulate) test "$#" = 1;;
+    *) echo 'Usage: lotus-thermal-check [--emulate]' >&2; exit 2;;
+esac
+test "$(id -u)" = 0
+for name in sound_app control_center kws-pcm-worker; do
+    if pidof "$name" >/dev/null 2>&1; then
+        echo 'Stop voice/KWS services before emulating temperature' >&2
+        exit 1
+    fi
+done
+soc= logic= cooling=
+for zone in /sys/class/thermal/thermal_zone*; do
+    case "$(cat "$zone/type")" in
+        soc-thermal) soc=$zone;;
+        gpu-thermal|logic-thermal) logic=$zone;;
+    esac
+done
+for device in /sys/class/thermal/cooling_device*; do
+    test "$(cat "$device/type")" != cpufreq-cpu0 || cooling=$device
+done
+test -n "$soc" && test -n "$logic" && test -n "$cooling"
+test "$(cat "$cooling/max_state")" = 5
+for zone in "$soc" "$logic"; do
+    test "$(cat "$zone/temp")" -lt 60000
+    test "$(cat "$zone/policy")" = step_wise
+    test "$(cat "$zone/trip_point_0_temp")" = 70000
+    test "$(cat "$zone/trip_point_0_type")" = passive
+    test -w "$zone/emul_temp"
+    # Refuse the old DT where channel 1 has only a critical trip.
+    found=0
+    for binding in "$zone"/cdev*_trip_point; do
+        test -f "$binding" || continue
+        test "$(cat "$binding")" != 0 || found=1
+    done
+    test "$found" = 1
+done
+cleanup() {
+    printf '0\n' > "$soc/emul_temp"
+    printf '0\n' > "$logic/emul_temp"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
+
+read_state() {
+    state=$(cat "$cooling/cur_state")
+    limit=$(cat /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq)
+    printf '%s: state=%s limit_khz=%s\n' "$1" "$state" "$limit"
+    test "$state" -ge "$2" && test "$state" -le "$3"
+}
+settle() { sleep 2; }
+printf '66000\n' > "$soc/emul_temp"
+printf '66000\n' > "$logic/emul_temp"
+settle
+read_state baseline 0 0
+printf '71000\n' > "$soc/emul_temp"
+settle
+read_state soc-early 1 3
+printf '66000\n' > "$soc/emul_temp"
+settle
+read_state soc-recovered 0 0
+printf '71000\n' > "$logic/emul_temp"
+settle
+read_state channel1-early 1 3
+printf '86000\n' > "$logic/emul_temp"
+settle
+printf '87000\n' > "$logic/emul_temp"
+sleep 1
+printf '88000\n' > "$logic/emul_temp"
+settle
+read_state channel1-hot 4 5
+printf '71000\n' > "$soc/emul_temp"
+printf '66000\n' > "$logic/emul_temp"
+settle
+read_state soc-still-cooling 1 3
+printf '66000\n' > "$soc/emul_temp"
+settle
+read_state recovered 0 0
+cleanup
+sleep 1
+echo 'PASS: both channels can request cooling; cleared emulation; no heat load applied'
+exec /usr/bin/lotus-sensors

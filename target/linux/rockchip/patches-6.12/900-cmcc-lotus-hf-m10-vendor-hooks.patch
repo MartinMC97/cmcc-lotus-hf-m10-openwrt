@@ -1,0 +1,48 @@
+--- a/drivers/Kconfig
++++ b/drivers/Kconfig
+@@ -24,6 +24,7 @@
+ source "drivers/gnss/Kconfig"
+ 
+ source "drivers/mtd/Kconfig"
++source "drivers/rkflash/Kconfig"
+ 
+ source "drivers/of/Kconfig"
+ 
+--- a/drivers/Makefile
++++ b/drivers/Makefile
+@@ -195,3 +195,4 @@
+ obj-$(CONFIG_DPLL)		+= dpll/
+ 
+ obj-$(CONFIG_S390)		+= s390/
++obj-$(CONFIG_RK_FLASH)		+= rkflash/
+--- a/sound/soc/codecs/Kconfig
++++ b/sound/soc/codecs/Kconfig
+@@ -2601,4 +2601,13 @@
+ 	select SND_SOC_LPASS_MACRO_COMMON
+ 	tristate "Qualcomm TX Macro in LPASS(Low Power Audio SubSystem)"
+ 
++config SND_SOC_LOTUS_RK3308_VENDOR
++	tristate "Lotus Mini RK3308 vendor codec including version B"
++	depends on ARCH_ROCKCHIP || COMPILE_TEST
++	select REGMAP_MMIO
++	help
++	  Compatibility port of Rockchip 6.1's codec, preserving the stock
++	  B-revision routing and external amplifier GPIO sequencing.
++	  Do not enable together with SND_SOC_RK3308.
++
+ endmenu
+--- a/sound/soc/codecs/Makefile
++++ b/sound/soc/codecs/Makefile
+@@ -822,3 +822,6 @@
+ 
+ # Mux
+ obj-$(CONFIG_SND_SOC_SIMPLE_MUX)	+= snd-soc-simple-mux.o
++
++snd-soc-rk3308-lotus-vendor-objs := rk3308_lotus_vendor.o
++obj-$(CONFIG_SND_SOC_LOTUS_RK3308_VENDOR) += snd-soc-rk3308-lotus-vendor.o
+--- a/arch/arm64/boot/dts/rockchip/Makefile
++++ b/arch/arm64/boot/dts/rockchip/Makefile
+@@ -8,2 +8,3 @@
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3308-evb.dtb
++dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3308-cmcc-lotus-hf-m10.dtb
+ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3308-roc-cc.dtb

@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: GPL-2.0
+
+if ARCH_ROCKCHIP
+
+menuconfig RK_FLASH
+	bool "Rockchip Flash Devices Support"
+	default n
+	help
+	  This enables support for Rockchip Flash Devices including Nandc Slc
+	  Nand, SFC Spi Nand and SFC Spi Nor.
+
+	  They're block interface.
+
+	  Say Y when you have a board with one of them.
+
+if RK_FLASH
+
+comment "Rockchip Flash Devices"
+
+config RK_SFTL
+	bool "Rockchip Slc Nand FTL support"
+	default y
+	depends on (RK_NANDC_NAND || (RK_SFC_NAND && !RK_SFC_NAND_MTD))
+	help
+	  This enables support for Slc Nand FTL.
+
+	  Say Y when you have a board with Slc Nand Flash register as block device.
+
+config RK_NANDC_NAND
+	bool "Rockchip NANDC Slc Nand Devices support"
+	default n
+	depends on RK_NAND != y
+	help
+	  This enables support for NANDC Slc Nand Devices.
+
+	  It's block interface, 512Kb/sector.
+
+	  Say Y when you have a board with Slc Nand Flash supported by Rockchip
+	  Nandc controller.
+
+config LOTUS_MINI_NAND_READ_ONLY_GUARD
+	bool "Block physical NAND program and erase during Lotus Mini bring-up"
+	depends on RK_NANDC_NAND
+	default y
+	help
+	  Refuse all NAND page-program and block-erase operations at the
+	  low-level NANDC callbacks. This includes writes requested by SFTL
+	  initialization and background garbage collection, before any block
+	  device can be marked read-only. Enable only in dedicated diagnostic
+	  kernels; leave disabled in production after NAND has been validated.
+
+config LOTUS_MINI_NAND_WRITE_TEST
+	bool "Lotus Mini experimental NAND write test without background GC"
+	depends on RK_NANDC_NAND && !LOTUS_MINI_NAND_READ_ONLY_GUARD
+	default n
+	help
+	  Dedicated destructive-risk Recovery experiment. Permit NAND page
+	  program and erase, but retain manual probe and suppress background GC
+	  and vendor-storage registration. SFTL initialization, data writes and
+	  shutdown may still modify global metadata; this is not a safe or
+	  production storage configuration.
+
+config LOTUS_MINI_NAND_GC_TEST
+	bool "Lotus Mini experimental NAND background GC test"
+	depends on LOTUS_MINI_NAND_WRITE_TEST
+	default n
+	help
+	  Start Rockchip's normal background garbage-collection thread after
+	  manual NAND probe. Vendor-storage registration remains disabled.
+	  This may program or erase NAND outside the requested logical partition;
+	  use only on the dedicated expendable Recovery test device.
+
+config LOTUS_MINI_NAND_ID_ONLY
+	bool "Stop Lotus Mini NAND diagnosis before SFTL initialization"
+	depends on LOTUS_MINI_NAND_READ_ONLY_GUARD
+	default n
+	help
+	  Initialize the NAND controller and read chip IDs, then stop without
+	  calling sftl_init or registering a logical block device. This separates
+	  bus/pinctrl diagnosis from translation-layer initialization.
+
+config LOTUS_MINI_NAND_MANUAL_PROBE
+	bool "Defer Lotus Mini NAND probe until a diagnostic sysfs trigger"
+	depends on (LOTUS_MINI_NAND_READ_ONLY_GUARD || LOTUS_MINI_NAND_WRITE_TEST) && !LOTUS_MINI_NAND_ID_ONLY
+	default n
+	help
+	  Let RAM Recovery and USB start before NAND/SFTL initialization.
+	  Writing probe to /sys/kernel/lotus_nand/probe registers the NAND
+	  driver once. This is a diagnostic interface, not a production feature.
+
+config LOTUS_MINI_SFTL_RAM_ONLY
+	bool "Skip persistent SFTL maintenance for read-only Lotus Mini diagnosis"
+	depends on LOTUS_MINI_NAND_MANUAL_PROBE && !CC_IS_CLANG && ARM64
+	default n
+	help
+	  Skip metadata flushes and garbage collection in the GCC ARM64 SFTL
+	  assembly. Physical NAND program and erase remain blocked. Existing
+	  mapping must be validated against stock hashes. Never use for production.
+
+config RK_SFC_NAND
+	bool "Rockchip SFC Spi Nand Devices support"
+	default n
+	depends on RK_NAND != y
+	help
+	  This enables support for Rockchip SFC Spi Nand Devices.
+
+	  It's block interface, 512Kb/sector.
+
+	  Say Y when you have a board with Spi Nand Flash supported by Rockchip
+	  Serial Flash Controller(SFC).
+
+config RK_SFC_NAND_MTD
+	bool "RK SFC NAND mtd Interface Support"
+	select ROCKCHIP_MTD_VENDOR_STORAGE
+	default n
+	depends on RK_SFC_NAND && MTD
+	help
+	  Enable mtd interface for SFC_NAND device.
+
+	  Say Y when you wanna use mtd interface for SFC_NAND flash.
+
+config RK_SFC_NOR
+	bool "Rockchip SFC Spi Nor Devices Support"
+	select CRYPTO
+	select CRYPTO_LIB_ARC4
+	default n
+	help
+	  This enables support for Rockchip SFC Spi Nor Devices.
+
+	  It's block interface,512Kb/sector.
+
+	  Say Y when you have a board with Spi Nor Flash supported by Rockchip
+	  Serial Flash Controller(SFC).
+
+config RK_SFC_NOR_MTD
+	bool "RK SFC NOR mtd Interface Support"
+	default n
+	depends on RK_SFC_NOR && MTD
+	help
+	  Enable mtd interface for SFC_NOR device.
+
+	  Say Y when you wanna use mtd interface for SFC_NOR flash.
+
+endif # RK_FLASH
+
+endif # ARCH_ROCKCHIP

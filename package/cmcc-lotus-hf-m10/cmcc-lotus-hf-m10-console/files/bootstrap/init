@@ -1,0 +1,77 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin HOME=/root
+BB=/bin/busybox
+log() { echo "lotus-bootstrap: $*" >&2; [ ! -e /dev/kmsg ] || echo "lotus-bootstrap: $*" > /dev/kmsg; }
+hold() {
+    reason=$*
+    log "STOP: $reason; no formatting or automatic restart"
+    /lotus-usb-gadget start || log 'diagnostic USB serial unavailable'
+    while :; do
+        [ ! -c /dev/ttyGS0 ] || "$BB" timeout 2 "$BB" sh -c 'printf "lotus-bootstrap STOP: %s\r\nUse Loader to restore previous images.\r\n" "$1" > /dev/ttyGS0' diagnostic "$reason"
+        "$BB" sleep 10
+    done
+}
+"$BB" mount -t devtmpfs devtmpfs /dev || exit 1
+"$BB" mkdir -p /dev/pts /proc /sys /run /tmp /newroot /lotus-lower /lotus-upper
+"$BB" mount -t proc proc /proc || hold proc
+"$BB" mount -t sysfs sysfs /sys || hold sysfs
+"$BB" mount -t devpts devpts /dev/pts || hold devpts
+"$BB" mount -t tmpfs tmpfs /run || hold run
+"$BB" mount -t tmpfs tmpfs /tmp || hold tmp
+"$BB" mkdir -p /sys/fs/pstore
+"$BB" mount -t pstore pstore /sys/fs/pstore || log pstore-unavailable
+. /lotus-partitions || hold partition-validator
+. /lotus-run-targets || hold runtime-target-validator
+. /lotus-userdata || hold userdata-validator
+. /etc/lotus-rootfs-hashes || hold pairing-manifest
+if [ ! -b /dev/rkflash0 ]; then
+    [ -w /sys/kernel/lotus_nand/probe ] || hold nand-probe-unavailable
+    echo probe > /sys/kernel/lotus_nand/probe || hold nand-probe-failed
+fi
+i=0
+while ! ROOTFS=$(lotus_partition rootfs 53248 71680); do
+    [ "$i" -lt 20 ] || hold rootfs-name-or-layout
+    "$BB" sleep 1; i=$((i + 1))
+done
+USERDATA=$(lotus_partition userdata 124928 userdata) || hold userdata-name-or-layout
+[ -b "$ROOTFS" ] && [ -b "$USERDATA" ] || hold missing-block-node
+actual=$("$BB" sha256sum "$ROOTFS") || hold rootfs-read-error
+[ "${actual%% *}" = "$ROOTFS_PADDED_SHA" ] || hold rootfs-pairing-mismatch
+"$BB" mount -t squashfs -o ro "$ROOTFS" /lotus-lower || hold squashfs
+[ -x /lotus-lower/sbin/init ] || hold missing-openwrt-init
+[ -r /lotus-lower/lib/preinit/79_lotus_switch_root ] || hold missing-preinit-hook
+modules=/lotus-lower/lib/modules/$("$BB" uname -r)
+for name in mbcache jbd2 ext4; do
+    [ -d "/sys/module/$name" ] && continue
+    [ -f "$modules/$name.ko" ] || hold "missing-module-$name"
+    "$BB" insmod "$modules/$name.ko" || hold "load-module-$name"
+done
+"$BB" mount -t ext4 -o ro,noload "$USERDATA" /lotus-upper || hold userdata-readonly
+lotus_userdata_state /lotus-upper >/dev/null || hold userdata-unsafe-persistent-directory
+"$BB" umount /lotus-upper || hold userdata-unmount
+"$BB" mount -t ext4 "$USERDATA" /lotus-upper || hold userdata-readwrite
+lotus_userdata_prepare /lotus-upper || hold userdata-initialization
+upper=/lotus-upper/lotus-openwrt-v1
+[ -d "$upper/upper" ] && [ -d "$upper/work" ] || hold missing-persistent-directories
+"$BB" mount -t overlay -o lowerdir=/lotus-lower,upperdir="$upper/upper",workdir="$upper/work",index=off overlay /newroot || hold overlay
+# Old overlay files can shadow board fixes; refuse the incompatible case.
+"$BB" grep -q 'lotus_partition rootfs' /newroot/lib/preinit/79_lotus_switch_root || hold shadowed-preinit-hook
+for dir in rom overlay dev proc sys tmp; do "$BB" mkdir -p "/newroot/$dir" || hold "mkdir-$dir"; done
+"$BB" mount --move /lotus-lower /newroot/rom || hold move-rom
+"$BB" mount --move /lotus-upper /newroot/overlay || hold move-overlay
+# /run may be an absolute /var/run alias. Move /tmp first and resolve it
+# within the future root; mkdir through the alias could touch the old root.
+"$BB" mount --move /tmp /newroot/tmp || hold move-tmp
+run_target=$(lotus_run_target /newroot) || hold incompatible-run-path
+"$BB" mkdir -p "$run_target" || hold mkdir-run-target
+"$BB" mount --move /run "$run_target" || hold move-run
+# Move sys last; errors remain visible through console even after /dev moves.
+for dir in dev proc sys; do
+    "$BB" mount --move "/$dir" "/newroot/$dir" || hold "move-$dir"
+done
+unset INITRAMFS
+export LOTUS_PREMOUNTED_ROOT=1
+cd /newroot || exit 1
+# This remains PID 1. BusyBox removes the old initramfs before exec of OpenWrt init.
+exec "$BB" switch_root -c /dev/console /newroot /sbin/init

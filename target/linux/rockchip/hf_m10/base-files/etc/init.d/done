@@ -1,0 +1,11 @@
+#!/bin/sh /etc/rc.common
+# SPDX-License-Identifier: GPL-2.0-only
+# The verified bootstrap owns Rootfs and overlay mounting on this SFTL board.
+# Do not invoke the generic mount_root done / jffs2-switch completion path.
+START=95
+
+boot() {
+    [ ! -f /etc/rc.local ] || sh /etc/rc.local
+    . /etc/diag.sh
+    set_state done
+}

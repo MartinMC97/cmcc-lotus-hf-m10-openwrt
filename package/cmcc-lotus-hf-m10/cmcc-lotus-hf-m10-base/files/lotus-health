@@ -1,0 +1,15 @@
+#!/bin/sh
+# Node/service inventory only: not a claim of physical-function validation.
+echo '=== CMCC HF-M10 inventory (no credentials) ==='
+uname -a
+cat /etc/openwrt_release
+printf 'board='; cat /tmp/sysinfo/board_name 2>/dev/null || true
+grep -E 'MemTotal:|MemAvailable:' /proc/meminfo
+printf 'overlay='; grep ' / overlay ' /proc/mounts || true
+echo 'sound cards:'; cat /proc/asound/cards 2>/dev/null || true
+echo 'LED nodes:'; ls /sys/class/leds 2>/dev/null || true
+echo 'input nodes:'; ls /sys/class/input 2>/dev/null || true
+echo 'network nodes:'; ls /sys/class/net 2>/dev/null || true
+echo 'Bluetooth nodes:'; ls /sys/class/bluetooth 2>/dev/null || true
+echo 'ubus services:'; ubus list 2>/dev/null || true
+echo '=== Inventory complete; playback/recording/radio/key tests still required ==='

@@ -1,0 +1,49 @@
+#!/bin/sh
+# Read-only JSON for CLI and LuCI. Absent or undecoded values stay null.
+set -eu
+sysroot=${LOTUS_SENSOR_SYSROOT:-/sys}
+capacity=null
+status=unknown
+p=$sysroot/class/power_supply/lotus-battery
+if value=$(cat "$p/capacity" 2>/dev/null); then
+    case "$value" in 0|25|50|75|100) capacity=$value;; esac
+fi
+if value=$(cat "$p/status" 2>/dev/null); then
+    case "$value" in Charging) status=charging;; 'Not charging') status=not-charging;; esac
+fi
+printf '{"battery":{"capacity":%s,"status":"%s","resolution":25},"temperatures":[' "$capacity" "$status"
+separator=
+for zone in "$sysroot"/class/thermal/thermal_zone*; do
+    test -d "$zone" || continue
+    value=$(cat "$zone/temp" 2>/dev/null) || continue
+    case "$value" in -*) number=${value#-};; *) number=$value;; esac
+    case "$number" in ''|*[!0-9]*) continue;; esac
+    # Fixed identifiers, not unconstrained strings in JSON.
+    case "$(cat "$zone/type" 2>/dev/null)" in
+        soc-thermal) label=soc;; gpu-thermal|logic-thermal) label=internal-channel-1;; *) continue;;
+    esac
+    printf '%s{"sensor":"%s","millidegrees_celsius":%s}' "$separator" "$label" "$value"
+    separator=,
+done
+printf '],"cpu":{"frequency_khz":'
+read_uint() {
+    value=$(cat "$1" 2>/dev/null) || { printf null; return; }
+    case "$value" in ''|*[!0-9]*) printf null;; *) printf '%s' "$value";; esac
+}
+policy=$sysroot/devices/system/cpu/cpufreq/policy0
+read_uint "$policy/scaling_cur_freq"
+printf ',"maximum_frequency_khz":'
+read_uint "$policy/scaling_max_freq"
+printf '},"cooling":['
+separator=
+for device in "$sysroot"/class/thermal/cooling_device*; do
+    test -d "$device" || continue
+    test "$(cat "$device/type" 2>/dev/null)" = cpufreq-cpu0 || continue
+    printf '%s{"device":"cpufreq-cpu0","state":' "$separator"
+    read_uint "$device/cur_state"
+    printf ',"maximum_state":'
+    read_uint "$device/max_state"
+    printf '}'
+    separator=,
+done
+printf ']}\n'
