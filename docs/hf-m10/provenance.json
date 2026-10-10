@@ -19,5 +19,37 @@
     "/sys/kernel/lotus_nand",
     "lotus hardware control interfaces"
   ],
-  "verification": "pending native toolchain build; no runtime acceptance of the renamed firmware"
+  "verification": {
+    "native_world": "PASS",
+    "external_toolchain": false,
+    "sdk_used": false,
+    "old_compiled_objects_used": false,
+    "regression_tests_passed": 45,
+    "native_build_commit": "c78df0b01c",
+    "distribution_revision": "r33051-f5dae5ece4",
+    "build_attempts": [
+      {
+        "input_commit": "89bb1093c8",
+        "exit_code": 2,
+        "elapsed_seconds": 5191,
+        "result": "base defaults filename mismatch; native toolchain and kernel completed"
+      },
+      {
+        "input_commit": "c78df0b01c",
+        "exit_code": 0,
+        "elapsed_seconds": 617,
+        "result": "native world complete after filename fix"
+      }
+    ],
+    "offline_image_verification": "PASS",
+    "aarch64_kernel_modules_checked": 90,
+    "boot_sha256": "9d7d82251d90dae2ef1ee78095d7bf0db133bd98783fe218da438c1c64f693c5",
+    "rootfs_sha256": "6d8e9989e0a1918ba94bce2d52a9ce56d0f660ddcbd61fe5ca9305a56a0ebdde",
+    "boot_size": 17825792,
+    "boot_payload_size": 4034560,
+    "boot_headroom": 13791232,
+    "rootfs_size": 36700160,
+    "runtime_acceptance": false,
+    "device_access": false
+  }
 }

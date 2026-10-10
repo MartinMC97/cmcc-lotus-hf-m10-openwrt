@@ -33,5 +33,29 @@ USB 跨主机恢复问题、APK overlay 升级、通用首装与 sysupgrade 是�
 
 ## 验证
 
-迁移后需通过原生 feeds/defconfig、行为回归、独立工具链完整构建及离线镜像
-核验。旧工程的实机结果不直接等于新改名固件验收。本轮不自动刷写或重启设备。
+2026-10-10 验证结果：
+
+- 原生 feeds/defconfig 通过，官方 feeds 固定提交匹配。
+- 45 项行为/镜像格式/USB 身份回归通过（38＋4＋3）。
+- 完整 `make -j4 V=s world` 通过，自建 GCC 14.3.0/musl 工具链；未使用 SDK、
+  外部工具链或旧工程的编译对象。仅复用了可校验的源码下载缓存。
+- 首轮完整编译在基础包安装阶段发现默认配置脚本文件名遗漏；修正并重新通过
+  38 项相关回归后继续完整构建，最终输入提交为 `c78df0b01c`。
+- Boot/Rootfs 尺寸、Android 头部、XZ initramfs、静态 BusyBox、LZ4 内核、
+  RSCE 设备树、配对 SHA-256 和启动源码一致性核验通过。
+- 设备树型号为 `HF-M10`，首兼容标识为 `cmcc,lotus-hf-m10`；Rootfs 为
+  25.12.5、`rockchip/hf_m10`、`aarch64_generic`；90 个内核模块均为
+  AArch64、6.12.108。默认配置及 USB gadget 与源码逐字节一致。
+- ROM 未包含预设 root 密码、SSH 主机私钥、adbd 或 `/openwrt-shell`。
+
+Boot 有效载荷为 4,034,560 字节，余量为 13,791,232 字节。
+摘要见 `provenance.json`；本机完整镜像、配置及核验报告保存在忽略目录
+`artifacts/native-hf-m10-20261010-c78df0b01c/`，未提交到源码 Git。
+首次构建日志位于 `build-logs/native-world-r1.log`，修正后日志为
+`build-logs/native-world-r2.log`。
+
+发行版 revision 保持上游正式版的 `r33051-f5dae5ece4`；本 fork 的实际输入提交
+另行记录，不根据发行版 revision 推断本地适配提交。
+旧工程只清理了生成的 build_dir/staging_dir/tmp，源码、配置、镜像及备份保留。
+旧工程的实机结果不等于新改名固件验收，本轮没有刷写、重启或访问设备。
+新镜像仍需独立完成启动与硬件测试，不标记为已通过实机验收。

@@ -26,6 +26,15 @@ make -j4
 `*-rootfs.squashfs`（35 MiB），以及 Boot 配对摘要。普通升级只刷 Boot/Rootfs，
 不写 Userdata、GPT、U-Boot、Trust 或 DDR Loader。
 
+构建后可进行离线核验，不访问设备；报告路径必须尚不存在：
+
+```sh
+python3 scripts/cmcc-lotus-hf-m10/verify_images.py \
+  --boot bin/targets/rockchip/hf_m10/openwrt-25.12.5-rockchip-hf_m10-cmcc-lotus-hf-m10-squashfs-boot.img \
+  --rootfs bin/targets/rockchip/hf_m10/openwrt-25.12.5-rockchip-hf_m10-cmcc-lotus-hf-m10-squashfs-rootfs.squashfs \
+  --output artifacts/verification.json
+```
+
 ## 设备与安装
 
 这是 RK3308 NAND/SFTL 设备的专用目标，默认布局已删除 Recovery、扩充 Boot。
