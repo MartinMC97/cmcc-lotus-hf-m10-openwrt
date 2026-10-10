@@ -1,5 +1,5 @@
 #!/bin/sh
-# Executed once by OpenWrt uci-defaults; never reset user credentials.
+# HF-M10 defaults run once; never reset user credentials.
 set -e
 uci -q get system.@system[0] >/dev/null
 # Rename the old default, but retain an operator's custom hostname.

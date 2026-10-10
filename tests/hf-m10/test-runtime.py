@@ -229,7 +229,7 @@ class ManagementDefaultsTests(unittest.TestCase):
             tmp=Path(tmp); log=tmp/'commands'; library=tmp/'functions'; service=tmp/'service'
             library.write_text('config_load() { :; }; config_get() { '+('eval "$1=wwan";' if existing_zone else 'eval "$1=";')+' }; config_foreach() { '+('"$1" existing;' if existing_zone else ':;')+' }\n')
             service.write_text('#!/bin/sh\nprintf "SERVICE %s\\n" "$*" >> "$TEST_LOG"\n');service.chmod(0o755)
-            script=(DEFAULTS/'99-lotus-mini').read_text()
+            script=(DEFAULTS/'99-cmcc-lotus-hf-m10').read_text()
             script=script.replace('/lib/functions.sh',str(library)).replace('/etc/init.d/dropbear',str(service)+' dropbear').replace('/etc/init.d/uhttpd',str(service)+' uhttpd').replace('/etc/apk/repositories.d/distfeeds.list',str(tmp/'absent'))
             script='uci() { case "$1" in -q) return 0;; *) printf "UCI %s\\n" "$*" >> "$TEST_LOG";; esac; };\n'+script
             result=subprocess.run(['sh','-c',script],env={**os.environ,'TEST_LOG':str(log)},capture_output=True,text=True)
