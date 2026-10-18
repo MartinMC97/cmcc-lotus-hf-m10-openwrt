@@ -1,70 +1,108 @@
-# 和家小荷 MINI 10 / CMCC HF-M10 OpenWrt
+![OpenWrt logo](include/logo.png)
 
-本仓库是官方 OpenWrt `v25.12.5` 的完整源码分支，设备标识为
-`cmcc-lotus-hf-m10`，OpenWrt 型号为 `HF-M10`。内核保持已适配的 **6.12.108**，
-用户态和 packages/LuCI 使用 25.12.5 正式版固定提交。
+OpenWrt Project is a Linux operating system targeting embedded devices. Instead
+of trying to create a single, static firmware, OpenWrt provides a fully
+writable filesystem with package management. This frees you from the
+application selection and configuration provided by the vendor and allows you
+to customize the device through the use of packages to suit any application.
+For developers, OpenWrt is the framework to build an application without having
+to build a complete firmware around it; for users this means the ability for
+full customization, to use the device in ways never envisioned.
 
-## 构建
+Sunshine!
 
-安装 OpenWrt 宿主机构建依赖，使用非 root 用户，在仓库根目录执行：
+## Download
 
-```sh
-./scripts/feeds update -a
-./scripts/feeds install -a
-cp configs/cmcc-lotus-hf-m10.config .config
-make defconfig
-make menuconfig  # 可选：Rockchip → CMCC HF-M10 → CMCC HF-M10
-make download -j4
-make -j4
+Built firmware images are available for many architectures and come with a
+package selection to be used as WiFi home router. To quickly find a factory
+image usable to migrate from a vendor stock firmware to OpenWrt, try the
+*Firmware Selector*.
+
+* [OpenWrt Firmware Selector](https://firmware-selector.openwrt.org/)
+
+If your device is supported, please follow the **Info** link to see install
+instructions or consult the support resources listed below.
+
+## 
+
+An advanced user may require additional or specific package. (Toolchain, SDK, ...) For everything else than simple firmware download, try the wiki download page:
+
+* [OpenWrt Wiki Download](https://openwrt.org/downloads)
+
+## Development
+
+To build your own firmware you need a GNU/Linux, BSD or macOS system (case
+sensitive filesystem required). Cygwin is unsupported because of the lack of a
+case sensitive file system.
+
+### Requirements
+
+You need the following tools to compile OpenWrt, the package names vary between
+distributions. A complete list with distribution specific packages is found in
+the [Build System Setup](https://openwrt.org/docs/guide-developer/build-system/install-buildsystem)
+documentation.
+
+```
+binutils bzip2 diff find flex gawk gcc-6+ getopt grep install libc-dev libz-dev
+make4.1+ perl python3.7+ rsync subversion unzip which
 ```
 
-使用 OpenWrt 自建工具链，不需要预先安装 SDK，不需要另一个 Lotus Mini 工程。
-构建配置默认内置 Dropbear、HTTP/HTTPS LuCI、USB 串口、Wi-Fi、蓝牙及板级驱动。
-新产物验证状态见 [迁移记录](docs/hf-m10/MIGRATION.md)。
+### Quickstart
 
-输出位于 `bin/targets/rockchip/hf_m10/`：配对的 `*-boot.img`（17 MiB）、
-`*-rootfs.squashfs`（35 MiB），以及 Boot 配对摘要。普通升级只刷 Boot/Rootfs，
-不写 Userdata、GPT、U-Boot、Trust 或 DDR Loader。
+1. Run `./scripts/feeds update -a` to obtain all the latest package definitions
+   defined in feeds.conf / feeds.conf.default
 
-构建后可进行离线核验，不访问设备；报告路径必须尚不存在：
+2. Run `./scripts/feeds install -a` to install symlinks for all obtained
+   packages into package/feeds/
 
-```sh
-python3 scripts/cmcc-lotus-hf-m10/verify_images.py \
-  --boot bin/targets/rockchip/hf_m10/openwrt-25.12.5-rockchip-hf_m10-cmcc-lotus-hf-m10-squashfs-boot.img \
-  --rootfs bin/targets/rockchip/hf_m10/openwrt-25.12.5-rockchip-hf_m10-cmcc-lotus-hf-m10-squashfs-rootfs.squashfs \
-  --output artifacts/verification.json
-```
+3. Run `make menuconfig` to select your preferred configuration for the
+   toolchain, target system & firmware packages.
 
-## 设备与安装
+4. Run `make` to build your firmware. This will download all sources, build the
+   cross-compile toolchain and then cross-compile the GNU/Linux kernel & all chosen
+   applications for your target system.
 
-这是 RK3308 NAND/SFTL 设备的专用目标，默认布局已删除 Recovery、扩充 Boot。
-Rootfs 起始 `0xD000`、Userdata 起始 `0x1E800`；Userdata 长度保持本机原值。
-镜像只适用于已验证的新布局设备，不是原厂首装或通用 sysupgrade 镜像。
-切根 initramfs 通过 `switch_root` 启动 OpenWrt，保留 Squashfs＋ext4 overlay。
-既有 `lotus-openwrt-v1` 持久目录和身份标记保持兼容，不自动格式化或清除用户设置。
+### Related Repositories
 
-USB 默认只有 CDC ACM 串口，115200、8N1、无流控；使用 root 和本机密码登录。
-Windows 查看设备管理器 COM；Linux 查看 `/dev/serial/by-id/`。串口工具：
-`python3 contrib/hf-m10/serial-terminal.py /dev/ttyACM0`（需要端口访问权限）。
-新系统默认主机名 `cmcc-lotus-hf-m10`；原有自定义主机名、网络和密钥保持。
+The main repository uses multiple sub-repositories to manage packages of
+different categories. All packages are installed via the OpenWrt package
+manager called `opkg`. If you're looking to develop the web interface or port
+packages to OpenWrt, please find the fitting repository below.
 
-硬件服务、HA 语音卫星和对应 LuCI 应用仍由独立项目提供，不默认内置。
-升级保留 Userdata 中已安装的应用；迁移源码布局不等于完成应用包数据库升级。
-旧 Snapshot overlay 的 APK 状态需另行迁移，暂勿批量 `apk upgrade` 或混装官方 kmod。
+* [LuCI Web Interface](https://github.com/openwrt/luci): Modern and modular
+  interface to control the device via a web browser.
 
-迁移分区前，保存本机完整离线 NAND/Userdata，验证音量加＋USB 上电进入 Loader。
-恢复依赖 NAND 上可用的 U-Boot，不能替代独立 Maskrom。通用 sysupgrade 尚未适配。
+* [OpenWrt Packages](https://github.com/openwrt/packages): Community repository
+  of ported packages.
 
-## 源码组织
+* [OpenWrt Routing](https://github.com/openwrt/routing): Packages specifically
+  focused on (mesh) routing.
 
-- `target/linux/rockchip/hf_m10/`：专用目标配置与板级默认文件。
-- `target/linux/rockchip/files-6.12/`、`patches-6.12/`：设备树、NAND/SFTL、音频和温控适配。
-- `target/linux/rockchip/image/hf_m10.mk`：原生配对镜像配方。
-- `package/cmcc-lotus-hf-m10/`：板级软件包、静态 BusyBox、preinit 和 initramfs 源码。
-- `tools/hf-m10-resource/`：从源码构建的 Rockchip RSCE 宿主机工具。
-- `scripts/cmcc-lotus-hf-m10/`：镜像格式封装与切根 initramfs 构造。
-- `contrib/hf-m10/`：离线 GPT、Userdata、U-Boot 维护和串口工具；不参与普通刷写。
-- `tests/hf-m10/`、`docs/hf-m10/`：行为回归、来源和验收记录。
+* [OpenWrt Video](https://github.com/openwrt/video): Packages specifically
+  focused on display servers and clients (Xorg and Wayland).
 
-[上游 OpenWrt](https://github.com/openwrt/openwrt) 使用 GPL-2.0；
-第三方代码保留原有版权与许可证声明。
+## Support Information
+
+For a list of supported devices see the [OpenWrt Hardware Database](https://openwrt.org/supported_devices)
+
+### Documentation
+
+* [Quick Start Guide](https://openwrt.org/docs/guide-quick-start/start)
+* [User Guide](https://openwrt.org/docs/guide-user/start)
+* [Developer Documentation](https://openwrt.org/docs/guide-developer/start)
+* [Technical Reference](https://openwrt.org/docs/techref/start)
+
+### Support Community
+
+* [Forum](https://forum.openwrt.org): For usage, projects, discussions and hardware advise.
+* [Support Chat](https://webchat.oftc.net/#openwrt): Channel `#openwrt` on **oftc.net**.
+
+### Developer Community
+
+* [Bug Reports](https://bugs.openwrt.org): Report bugs in OpenWrt
+* [Dev Mailing List](https://lists.openwrt.org/mailman/listinfo/openwrt-devel): Send patches
+* [Dev Chat](https://webchat.oftc.net/#openwrt-devel): Channel `#openwrt-devel` on **oftc.net**.
+
+## License
+
+OpenWrt is licensed under GPL-2.0
