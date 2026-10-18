@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=cmcc-lotus-hf-m10-base
 PKG_VERSION:=1
-PKG_RELEASE:=7
+PKG_RELEASE:=8
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -30,6 +30,7 @@ define Package/cmcc-lotus-hf-m10-base/install
 	$(INSTALL_DATA) ./files/lotus-partitions $(1)/lib/lotus-partitions.sh
 	$(INSTALL_DATA) ./files/69_lotus_premounted $(1)/lib/preinit/
 	$(INSTALL_DIR) $(1)/etc/uci-defaults $(1)/etc/hotplug.d/iface
+	$(INSTALL_BIN) ./files/98-cmcc-lotus-hf-m10-wifi-compat $(1)/etc/uci-defaults/
 	$(INSTALL_BIN) ./files/99-cmcc-lotus-hf-m10 $(1)/etc/uci-defaults/
 	$(INSTALL_BIN) ./files/91-lotus-ntp $(1)/etc/hotplug.d/iface/
 	$(INSTALL_DIR) $(1)/etc/sysctl.d

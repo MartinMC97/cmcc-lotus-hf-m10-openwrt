@@ -104,6 +104,8 @@ def main():
     require(ram['lotus-usb-gadget']==gadget and readfile('usr/libexec/lotus-usb-gadget')==gadget,'USB gadget source differs between ROM, initramfs and source')
     defaults=ROOT/'package/cmcc-lotus-hf-m10/cmcc-lotus-hf-m10-base/files/99-cmcc-lotus-hf-m10'
     require(readfile('etc/uci-defaults/99-cmcc-lotus-hf-m10')==defaults.read_bytes(),'board defaults source mismatch')
+    wifi_compat=defaults.with_name('98-cmcc-lotus-hf-m10-wifi-compat')
+    require(readfile('etc/uci-defaults/98-cmcc-lotus-hf-m10-wifi-compat')==wifi_compat.read_bytes(),'station identity migration source mismatch')
     release=readfile('etc/openwrt_release').decode()
     require("DISTRIB_RELEASE='25.12.5'" in release and "DISTRIB_TARGET='rockchip/hf_m10'" in release,'wrong release/target')
     require(readfile('etc/apk/arch').strip()==b'aarch64_generic','wrong package architecture')

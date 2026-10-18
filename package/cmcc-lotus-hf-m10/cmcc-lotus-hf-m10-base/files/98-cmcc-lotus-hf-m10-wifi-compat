@@ -1,0 +1,49 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-only
+# Preserve the existing unit's station identity and the applications' wlan0 ABI.
+# wifi-device.macaddr selects a radio; current wifi-scripts requires an interface
+# macaddr to override the SDIO chip's address. Never supply a device address here.
+set -e
+set -f
+
+sections=$(uci -q show wireless | sed -n 's/^wireless\.\([^=]*\)=wifi-iface$/\1/p')
+occupied=
+changed=
+for section in $sections; do
+	name=$(uci -q get "wireless.$section.ifname" || true)
+	[ "$name" != wlan0 ] || occupied=1
+done
+
+for section in $sections; do
+	[ "$(uci -q get "wireless.$section.mode" || true)" = sta ] || continue
+	case " $(uci -q get "wireless.$section.network" || true) " in
+		*' wwan '*) ;;
+		*) continue ;;
+	esac
+	device=$(uci -q get "wireless.$section.device" || true)
+	[ -n "$device" ] || continue
+	case "$(uci -q get "wireless.$device.path" || true)" in
+		*ff4a0000.mmc*) ;;
+		*) continue ;;
+	esac
+	name=$(uci -q get "wireless.$section.ifname" || true)
+	if [ -z "$name" ] && [ -z "$occupied" ]; then
+		uci set "wireless.$section.ifname=wlan0"
+		name=wlan0
+		occupied=1
+		changed=1
+	fi
+	[ "$name" = wlan0 ] || continue
+	address=$(uci -q get "wireless.$section.macaddr" || true)
+	[ -z "$address" ] || continue
+	address=$(uci -q get "wireless.$device.macaddr" || true)
+	[ "$address" != 00:00:00:00:00:00 ] || continue
+	printf '%s\n' "$address" | grep -Eq '^[[:xdigit:]][02468aAcCeE](:[[:xdigit:]]{2}){5}$' || continue
+	uci set "wireless.$section.macaddr=$address"
+	changed=1
+done
+
+if [ -n "$changed" ]; then
+	uci commit wireless
+fi
+exit 0
