@@ -1146,7 +1146,6 @@ static void usage(void)
 	version();
 	printf("Options:\n");
 	printf("\t" OPT_PACK "\t\t\tPack image from given files.\n");
-	printf("\t" OPT_UNPACK "\t\tUnpack given image to current dir.\n");
 	printf("\t" OPT_IMAGE "path"
 	       "\t\tSpecify input/output image path.\n");
 	printf("\t" OPT_PRINT "\t\t\tJust print informations.\n");
@@ -1191,7 +1190,8 @@ int main(int argc, char **argv)
 		} else if (!strcmp(OPT_PACK, arg)) {
 			action = ACTION_PACK;
 		} else if (!strcmp(OPT_UNPACK, arg)) {
-			action = ACTION_UNPACK;
+			LOGE("--unpack is disabled for security reasons.");
+			return EXIT_FAILURE;
 		} else if (!strcmp(OPT_TEST_LOAD, arg)) {
 			action = ACTION_TEST_LOAD;
 		} else if (!strcmp(OPT_TEST_CHARGE, arg)) {
